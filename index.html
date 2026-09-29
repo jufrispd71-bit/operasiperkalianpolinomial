@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPI - Operasi Perkalian Polinomial</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- MathJax for rendering math equations -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Soft background */
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling as requested */
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 16:9 Aspect Ratio Container */
+        #app-container {
+            position: relative;
+            width: 100%;
+            max-width: 177.78vh; /* 16:9 aspect ratio based on height */
+            height: 56.25vw; /* 16:9 aspect ratio based on width */
+            max-height: 100vh;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Enforce exact 16:9 using pseudo-element if needed, but flex max/min works better for responsivness while keeping ratio */
+        @media (min-aspect-ratio: 16/9) {
+            #app-container {
+                width: 177.78vh;
+                height: 100vh;
+            }
+        }
+        @media (max-aspect-ratio: 16/9) {
+            #app-container {
+                width: 100vw;
+                height: 56.25vw;
+            }
+        }
+
+        /* Page Transitions */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            transform: translateY(20px);
+            display: flex;
+            flex-direction: column;
+            background-color: #ffffff;
+        }
+
+        .page.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            z-index: 10;
+        }
+
+        /* Custom Colors based on request: Blue, Yellow, White */
+        .bg-primary { background-color: #1d4ed8; } /* Blue-700 */
+        .text-primary { color: #1d4ed8; }
+        .bg-secondary { background-color: #facc15; } /* Yellow-400 */
+        .text-secondary { color: #ca8a04; } /* Yellow-600 for contrast on white */
+        .border-primary { border-color: #1d4ed8; }
+        
+        .btn {
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        /* Content Area */
+        .content-area {
+            flex-grow: 1;
+            padding: 2rem 4rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Math styling */
+        .math-block {
+            background-color: #f8fafc;
+            border-left: 4px solid #1d4ed8;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 0.5rem 0.5rem 0;
+            font-size: 1.25rem;
+        }
+
+        .step-item {
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease;
+        }
+        .step-item.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Quiz Options */
+        .quiz-option {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .quiz-option:hover {
+            background-color: #eff6ff;
+            border-color: #93c5fd;
+        }
+        .quiz-option.selected {
+            background-color: #bfdbfe;
+            border-color: #2563eb;
+        }
+        .quiz-option.correct {
+            background-color: #bbf7d0;
+            border-color: #16a34a;
+        }
+        .quiz-option.wrong {
+            background-color: #fecaca;
+            border-color: #dc2626;
+        }
+
+        /* Certificate Styling */
+        #certificate-template {
+            width: 800px; /* Fixed size for high-quality PDF */
+            height: 600px;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+            padding: 40px;
+            position: absolute;
+            left: -9999px; /* Hide from view */
+            top: 0;
+            box-sizing: border-box;
+            border: 10px solid #1d4ed8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .cert-inner {
+            border: 2px solid #facc15;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            height: 60px;
+            background-color: #1d4ed8;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="rounded-xl">
+
+        <!-- ==================== PAGE 1: BERANDA ==================== -->
+        <div id="page-beranda" class="page active bg-gradient-to-br from-blue-50 to-white flex flex-col justify-center items-center text-center p-8">
+            <div class="mb-6 animate-bounce">
+                <i class="fas fa-square-root-variable text-6xl text-primary"></i>
+            </div>
+            <h2 class="text-xl text-gray-600 font-semibold mb-2">Matematika Tingkat Lanjut – Kelas XI SMA</h2>
+            <h1 class="text-5xl font-bold text-primary mb-8 tracking-tight">OPERASI PERKALIAN<br><span class="text-secondary">POLINOMIAL</span></h1>
+            
+            <div class="flex flex-col gap-4 w-64">
+                <button onclick="navigateTo('page-tujuan')" class="btn bg-primary text-white py-3 px-6 rounded-full font-bold text-lg shadow-md hover:bg-blue-800 flex items-center justify-center gap-2">
+                    <i class="fas fa-bullseye"></i> Tujuan Pembelajaran
+                </button>
+                <button onclick="navigateTo('page-materi-1')" class="btn bg-secondary text-blue-900 py-3 px-6 rounded-full font-bold text-lg shadow-md hover:bg-yellow-500 flex items-center justify-center gap-2">
+                    <i class="fas fa-book-open"></i> Materi
+                </button>
+                <button onclick="navigateTo('page-kuis-start')" class="btn bg-white border-2 border-primary text-primary py-3 px-6 rounded-full font-bold text-lg shadow-sm hover:bg-blue-50 flex items-center justify-center gap-2">
+                    <i class="fas fa-pen-to-square"></i> Kuis
+                </button>
+            </div>
+            
+            <div class="mt-12 text-sm text-gray-500">
+                Media Pembelajaran Interaktif (MPI)
+            </div>
+        </div>
+
+        <!-- ==================== PAGE 2: TUJUAN PEMBELAJARAN ==================== -->
+        <div id="page-tujuan" class="page">
+            <div class="top-nav">
+                <div class="font-bold"><i class="fas fa-bullseye mr-2"></i> Tujuan Pembelajaran</div>
+                <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i> Beranda</button>
+            </div>
+            <div class="content-area items-center text-center">
+                <div class="bg-blue-50 border-4 border-secondary p-12 rounded-2xl shadow-lg max-w-3xl w-full">
+                    <i class="fas fa-graduation-cap text-6xl text-primary mb-6"></i>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-8">Setelah mempelajari materi ini,</h2>
+                    <p class="text-2xl font-semibold text-primary">
+                        “Murid mampu menyelesaikan operasi perkalian polinomial.”
+                    </p>
+                </div>
+                
+                <div class="mt-12 flex gap-4">
+                    <button onclick="navigateTo('page-beranda')" class="btn bg-gray-200 text-gray-800 py-2 px-6 rounded-lg font-semibold hover:bg-gray-300">
+                        <i class="fas fa-arrow-left mr-2"></i> Kembali
+                    </button>
+                    <button onclick="navigateTo('page-materi-1')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">
+                        Lanjut ke Materi <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI A: Konsep ==================== -->
+        <div id="page-materi-1" class="page">
+            <div class="top-nav">
+                <div class="font-bold">A. Konsep Perkalian Polinomial</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-blue-800 px-3 py-1 rounded-full">1 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area flex flex-row gap-8">
+                <div class="flex-1 flex flex-col justify-center">
+                    <h2 class="text-2xl font-bold text-primary mb-4">Prinsip Dasar</h2>
+                    <p class="text-lg text-gray-700 leading-relaxed mb-4">
+                        Perkalian polinomial dilakukan dengan <strong>mengalikan setiap suku pada polinomial pertama dengan setiap suku pada polinomial kedua</strong>, kemudian <strong>menggabungkan suku-suku sejenis</strong> (suku dengan variabel dan pangkat yang sama).
+                    </p>
+                    <div class="bg-yellow-50 p-4 border-l-4 border-secondary rounded-r text-gray-700 italic">
+                        <i class="fas fa-lightbulb text-secondary mr-2"></i> Ingat sifat eksponen: \(a^m \times a^n = a^{m+n}\)
+                    </div>
+                </div>
+                <div class="flex-1 bg-white p-6 rounded-xl border-2 border-gray-100 shadow-sm flex flex-col justify-center">
+                    <h3 class="font-bold text-gray-600 mb-4 text-center">Contoh Visualisasi</h3>
+                    <div class="text-2xl text-center mb-6 font-semibold">
+                        <span class="text-blue-600">(x + 2)</span><span class="text-green-600">(x + 3)</span>
+                    </div>
+                    
+                    <button id="btn-anim-1" onclick="playAnim1()" class="btn bg-secondary text-blue-900 py-2 px-4 rounded-lg font-bold mb-4 self-center">Tampilkan Proses</button>
+                    
+                    <div class="text-lg space-y-2 mb-4 font-mono">
+                        <div id="anim1-s1" class="step-item text-gray-500">\(\color{blue}{x} \times \color{green}{x} = x^2\)</div>
+                        <div id="anim1-s2" class="step-item text-gray-500">\(\color{blue}{x} \times \color{green}{3} = 3x\)</div>
+                        <div id="anim1-s3" class="step-item text-gray-500">\(\color{blue}{2} \times \color{green}{x} = 2x\)</div>
+                        <div id="anim1-s4" class="step-item text-gray-500">\(\color{blue}{2} \times \color{green}{3} = 6\)</div>
+                    </div>
+                    
+                    <div id="anim1-s5" class="step-item border-t-2 pt-4">
+                        <div class="text-gray-600 text-sm mb-1">Gabungkan suku sejenis:</div>
+                        <div class="text-xl font-bold">\(x^2 + \underbrace{3x + 2x}_{5x} + 6 = \mathbf{x^2 + 5x + 6}\)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-tujuan')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-materi-2')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">Lanjut <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI B: Monomial x Polinomial ==================== -->
+        <div id="page-materi-2" class="page">
+            <div class="top-nav">
+                <div class="font-bold">B. Perkalian Monomial dengan Polinomial</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-blue-800 px-3 py-1 rounded-full">2 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area items-center">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Sifat Distributif</h2>
+                <p class="text-gray-600 mb-6 text-center max-w-2xl">Kalikan monomial di luar kurung dengan setiap suku yang ada di dalam kurung.</p>
+                
+                <div class="bg-white p-8 rounded-xl border-2 border-blue-100 shadow-md w-full max-w-3xl">
+                    <div class="text-3xl text-center mb-8 font-semibold">
+                        <span class="text-red-600 font-bold">3x</span><span class="text-blue-800">(2x² + 4x − 5)</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-4 text-center mb-6">
+                        <div class="bg-gray-50 p-4 rounded-lg border cursor-pointer hover:bg-blue-50 transition" onclick="toggleVisibility('langkah2a')">
+                            <div class="text-sm text-gray-500 mb-2">Langkah 1</div>
+                            <div class="font-bold text-red-600">3x <span class="text-gray-400">×</span> <span class="text-blue-800">2x²</span></div>
+                            <div id="langkah2a" class="hidden mt-2 pt-2 border-t text-xl font-bold">6x³</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg border cursor-pointer hover:bg-blue-50 transition" onclick="toggleVisibility('langkah2b')">
+                            <div class="text-sm text-gray-500 mb-2">Langkah 2</div>
+                            <div class="font-bold text-red-600">3x <span class="text-gray-400">×</span> <span class="text-blue-800">(+4x)</span></div>
+                            <div id="langkah2b" class="hidden mt-2 pt-2 border-t text-xl font-bold">+ 12x²</div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg border cursor-pointer hover:bg-blue-50 transition" onclick="toggleVisibility('langkah2c')">
+                            <div class="text-sm text-gray-500 mb-2">Langkah 3</div>
+                            <div class="font-bold text-red-600">3x <span class="text-gray-400">×</span> <span class="text-blue-800">(−5)</span></div>
+                            <div id="langkah2c" class="hidden mt-2 pt-2 border-t text-xl font-bold">− 15x</div>
+                        </div>
+                    </div>
+                    <div class="text-center text-sm text-gray-400 mb-4">Klik setiap kotak di atas untuk melihat hasilnya</div>
+                    
+                    <div class="bg-blue-50 p-4 rounded-lg text-center">
+                        <span class="text-gray-600 text-sm">Hasil Akhir:</span><br>
+                        <span class="text-2xl font-bold text-primary">6x³ + 12x² − 15x</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-materi-1')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-materi-3')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">Lanjut <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI C: Dua Binomial ==================== -->
+        <div id="page-materi-3" class="page">
+            <div class="top-nav">
+                <div class="font-bold">C. Perkalian Dua Binomial</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-blue-800 px-3 py-1 rounded-full">3 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area flex flex-row gap-8">
+                <div class="flex-1 flex flex-col justify-center">
+                    <h2 class="text-2xl font-bold text-primary mb-4">Metode FOIL</h2>
+                    <p class="text-gray-700 mb-4">Untuk mengalikan dua binomial, kita sering menggunakan singkatan FOIL untuk mengingat urutannya:</p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center"><span class="bg-red-100 text-red-700 font-bold w-8 h-8 flex items-center justify-center rounded mr-3">F</span> <strong>First</strong> (Suku Pertama)</li>
+                        <li class="flex items-center"><span class="bg-green-100 text-green-700 font-bold w-8 h-8 flex items-center justify-center rounded mr-3">O</span> <strong>Outer</strong> (Suku Luar)</li>
+                        <li class="flex items-center"><span class="bg-blue-100 text-blue-700 font-bold w-8 h-8 flex items-center justify-center rounded mr-3">I</span> <strong>Inner</strong> (Suku Dalam)</li>
+                        <li class="flex items-center"><span class="bg-purple-100 text-purple-700 font-bold w-8 h-8 flex items-center justify-center rounded mr-3">L</span> <strong>Last</strong> (Suku Terakhir)</li>
+                    </ul>
+                </div>
+                <div class="flex-1 bg-white p-6 rounded-xl border shadow-sm flex flex-col justify-center">
+                    <div class="text-3xl text-center mb-6 font-semibold tracking-widest">
+                        (x + 4)(x + 2)
+                    </div>
+                    
+                    <div class="space-y-2 mb-6">
+                        <div class="flex justify-between items-center p-2 rounded bg-red-50 text-red-800">
+                            <span><span class="font-bold">F:</span> x × x</span> <span>= x²</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded bg-green-50 text-green-800">
+                            <span><span class="font-bold">O:</span> x × 2</span> <span>= 2x</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded bg-blue-50 text-blue-800">
+                            <span><span class="font-bold">I:</span> 4 × x</span> <span>= 4x</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded bg-purple-50 text-purple-800">
+                            <span><span class="font-bold">L:</span> 4 × 2</span> <span>= 8</span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center p-4 bg-gray-50 border-t-2 border-gray-200">
+                        <p class="text-sm text-gray-500 mb-1">Jumlahkan dan gabungkan suku sejenis:</p>
+                        <p class="text-lg">x² + <span class="border-b-2 border-secondary font-bold">2x + 4x</span> + 8</p>
+                        <p class="text-2xl font-bold text-primary mt-2">x² + 6x + 8</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-materi-2')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-materi-4')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">Lanjut <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI D: Polinomial x Polinomial ==================== -->
+        <div id="page-materi-4" class="page">
+            <div class="top-nav">
+                <div class="font-bold">D. Perkalian Polinomial > 2 Suku</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-blue-800 px-3 py-1 rounded-full">4 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area items-center">
+                <h2 class="text-xl text-gray-700 mb-4 text-center">Gunakan cara distributif panjang dan teliti dengan tabel atau secara mendatar.</h2>
+                
+                <div class="bg-white p-6 rounded-xl border shadow w-full max-w-4xl">
+                    <div class="text-2xl text-center mb-4 font-semibold">
+                        <span class="text-blue-600">(x² + 2x + 3)</span><span class="text-green-600">(x + 4)</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-gray-600 mb-2 border-b pb-1">Cara Mendatar:</h4>
+                            <div class="text-sm space-y-2 font-mono">
+                                <div>= <span class="text-blue-600">x²</span><span class="text-green-600">(x + 4)</span> + <span class="text-blue-600">2x</span><span class="text-green-600">(x + 4)</span> + <span class="text-blue-600">3</span><span class="text-green-600">(x + 4)</span></div>
+                                <div>= (x³ + 4x²) + (2x² + 8x) + (3x + 12)</div>
+                                <div class="pt-2 text-gray-500">Kelompokkan suku sejenis:</div>
+                                <div>= x³ + (4x² + 2x²) + (8x + 3x) + 12</div>
+                                <div class="font-bold text-primary text-lg mt-2">= x³ + 6x² + 11x + 12</div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-bold text-gray-600 mb-2 border-b pb-1">Cara Tabel (Matriks):</h4>
+                            <table class="w-full text-center border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th class="border border-gray-300 bg-gray-100 p-2">×</th>
+                                        <th class="border border-gray-300 bg-blue-50 text-blue-700 p-2">x²</th>
+                                        <th class="border border-gray-300 bg-blue-50 text-blue-700 p-2">+2x</th>
+                                        <th class="border border-gray-300 bg-blue-50 text-blue-700 p-2">+3</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <th class="border border-gray-300 bg-green-50 text-green-700 p-2">x</th>
+                                        <td class="border border-gray-300 p-2 font-bold">x³</td>
+                                        <td class="border border-gray-300 p-2 bg-yellow-100">2x²</td>
+                                        <td class="border border-gray-300 p-2 bg-orange-100">3x</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 bg-green-50 text-green-700 p-2">+4</th>
+                                        <td class="border border-gray-300 p-2 bg-yellow-100">4x²</td>
+                                        <td class="border border-gray-300 p-2 bg-orange-100">8x</td>
+                                        <td class="border border-gray-300 p-2 font-bold">12</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-gray-500 mt-2 text-center">Jumlahkan diagonal bersilang (warna sama) untuk suku sejenis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-materi-3')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-materi-5')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">Lanjut <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI E: Kesalahan Umum ==================== -->
+        <div id="page-materi-5" class="page">
+            <div class="top-nav bg-red-700">
+                <div class="font-bold"><i class="fas fa-triangle-exclamation mr-2 text-yellow-300"></i> E. Kesalahan Umum</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-red-900 px-3 py-1 rounded-full">5 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area items-center text-center">
+                <p class="text-lg mb-6">Berikut adalah kesalahan yang sering dilakukan murid. <br><span class="font-bold">Coba Perbaiki</span> langkah pengerjaan di bawah ini!</p>
+                
+                <div class="bg-white p-6 rounded-xl border-l-4 border-red-500 shadow-md w-full max-w-2xl mb-6">
+                    <div class="text-xl mb-2 font-mono">(2x - 3)(x + 4)</div>
+                    <div class="p-3 bg-red-50 text-red-800 rounded mb-4 font-mono line-through opacity-70">
+                        = 2x² - 12 <span class="text-xs ml-2">(Salah: Hanya mengalikan depan dg depan, belakang dg belakang)</span>
+                    </div>
+                    
+                    <div class="font-bold text-gray-700 mb-2">Pilih langkah selanjutnya yang benar:</div>
+                    
+                    <div class="flex flex-col gap-2 text-left">
+                        <button onclick="checkMistake(1)" class="p-3 border rounded hover:bg-gray-50 transition w-full text-left font-mono">
+                            A. = 2x(x) - 3(4) 
+                        </button>
+                        <button onclick="checkMistake(2)" class="p-3 border rounded hover:bg-gray-50 transition w-full text-left font-mono" id="btn-correct-mistake">
+                            B. = 2x(x) + 2x(4) - 3(x) - 3(4)
+                        </button>
+                        <button onclick="checkMistake(3)" class="p-3 border rounded hover:bg-gray-50 transition w-full text-left font-mono">
+                            C. = 2x² - 3x + 4
+                        </button>
+                    </div>
+                    
+                    <div id="mistake-feedback" class="mt-4 hidden p-3 rounded font-bold"></div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-2xl text-sm text-left">
+                    <div class="bg-gray-100 p-3 rounded border">
+                        <span class="text-red-600 font-bold"><i class="fas fa-xmark"></i> Salah Tanda:</span><br>
+                        -2x(x - 3) = -2x² <span class="text-red-600 font-bold">-</span> 6x
+                    </div>
+                    <div class="bg-gray-100 p-3 rounded border">
+                        <span class="text-green-600 font-bold"><i class="fas fa-check"></i> Benar:</span><br>
+                        -2x(x - 3) = -2x² <span class="text-green-600 font-bold">+</span> 6x
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-materi-4')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-materi-6')" class="btn bg-primary text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-800">Lanjut <i class="fas fa-arrow-right ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== MATERI F: Latihan Interaktif ==================== -->
+        <div id="page-materi-6" class="page">
+            <div class="top-nav">
+                <div class="font-bold">F. Latihan Singkat</div>
+                <div class="flex gap-4">
+                    <span class="text-sm bg-blue-800 px-3 py-1 rounded-full">6 / 6</span>
+                    <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i></button>
+                </div>
+            </div>
+            <div class="content-area items-center justify-center">
+                <div class="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-secondary w-full max-w-xl text-center">
+                    <h2 class="text-xl font-bold text-gray-700 mb-2">Coba selesaikan perkalian berikut:</h2>
+                    <div class="text-3xl font-mono text-primary font-bold my-6 bg-blue-50 py-4 rounded-lg">
+                        (x - 5)(x + 2)
+                    </div>
+                    
+                    <p class="mb-4 text-gray-600">Pilih bentuk sederhananya:</p>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <button onclick="checkPractice('A')" id="prac-A" class="quiz-option p-4 border-2 rounded-xl text-lg font-mono">x² - 3x - 10</button>
+                        <button onclick="checkPractice('B')" id="prac-B" class="quiz-option p-4 border-2 rounded-xl text-lg font-mono">x² + 3x - 10</button>
+                        <button onclick="checkPractice('C')" id="prac-C" class="quiz-option p-4 border-2 rounded-xl text-lg font-mono">x² - 7x - 10</button>
+                        <button onclick="checkPractice('D')" id="prac-D" class="quiz-option p-4 border-2 rounded-xl text-lg font-mono">x² - 10</button>
+                    </div>
+                    
+                    <div id="practice-feedback" class="hidden p-4 rounded-lg font-bold mb-4"></div>
+                </div>
+            </div>
+            <div class="flex justify-between px-8 pb-4">
+                <button onclick="navigateTo('page-materi-5')" class="btn text-gray-600 hover:text-primary"><i class="fas fa-arrow-left"></i> Sebelumnya</button>
+                <button onclick="navigateTo('page-kuis-start')" class="btn bg-secondary text-blue-900 py-2 px-6 rounded-lg font-bold hover:bg-yellow-500 shadow-md">Uji Pemahaman (Kuis) <i class="fas fa-flag-checkered ml-2"></i></button>
+            </div>
+        </div>
+
+        <!-- ==================== KUIS START ==================== -->
+        <div id="page-kuis-start" class="page bg-blue-50 text-center flex flex-col items-center justify-center">
+             <div class="top-nav w-full absolute top-0">
+                <div class="font-bold">Kuis Evaluasi</div>
+                <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i> Beranda</button>
+            </div>
+            
+            <div class="bg-white p-10 rounded-2xl shadow-xl max-w-xl w-full mt-12">
+                <i class="fas fa-pen-to-square text-5xl text-primary mb-4"></i>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Kuis Operasi Perkalian Polinomial</h1>
+                <p class="text-gray-600 mb-6">Uji pemahamanmu setelah mempelajari materi.</p>
+                
+                <div class="text-left bg-gray-50 p-4 rounded-lg mb-6 text-sm text-gray-700">
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>Terdiri dari <strong>10 soal</strong> pilihan ganda.</li>
+                        <li>Pastikan kamu menghitung dengan teliti pada selembar kertas.</li>
+                        <li>Sertifikat akan diberikan di akhir kuis jika kamu menyelesaikannya.</li>
+                    </ul>
+                </div>
+
+                <div class="mb-6 text-left">
+                    <label for="student-name" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap Murid (Untuk Sertifikat):</label>
+                    <input type="text" id="student-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none" placeholder="Masukkan nama..." required>
+                    
+                    <label for="student-class" class="block text-sm font-medium text-gray-700 mb-1 mt-3">Kelas:</label>
+                    <input type="text" id="student-class" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none" placeholder="Contoh: XI IPA 1" required>
+                </div>
+
+                <button onclick="startQuiz()" class="btn bg-primary text-white py-3 px-8 rounded-full font-bold text-lg w-full hover:bg-blue-800 shadow-md">
+                    Mulai Kuis Sekarang
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== KUIS PLAY ==================== -->
+        <div id="page-kuis-play" class="page">
+            <div class="top-nav">
+                <div class="font-bold">Kuis <span id="quiz-progress-text" class="ml-2 font-normal text-sm bg-blue-800 px-2 py-1 rounded">1/10</span></div>
+                <div class="w-1/3 bg-blue-900 rounded-full h-2.5 ml-4">
+                  <div id="quiz-progress-bar" class="bg-secondary h-2.5 rounded-full" style="width: 10%"></div>
+                </div>
+                <button onclick="if(confirm('Yakin ingin keluar dari kuis? Progress akan hilang.')) navigateTo('page-beranda')" class="hover:text-red-300 ml-auto text-sm"><i class="fas fa-times"></i> Keluar</button>
+            </div>
+            
+            <div class="content-area">
+                <div class="max-w-3xl w-full mx-auto">
+                    <div class="bg-white p-8 rounded-2xl shadow border-t-4 border-primary">
+                        <div id="question-text" class="text-xl font-semibold text-gray-800 mb-8 min-h-[80px]">
+                            <!-- Question loads here -->
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4" id="options-container">
+                            <!-- Options load here via JS -->
+                        </div>
+                    </div>
+                    
+                    <div id="quiz-feedback" class="mt-6 p-4 rounded-lg hidden font-bold text-center text-lg">
+                        <!-- Feedback loads here -->
+                    </div>
+                    
+                    <div class="mt-6 flex justify-end">
+                        <button id="btn-next-question" onclick="nextQuestion()" class="btn bg-primary text-white py-2 px-8 rounded-lg font-bold hover:bg-blue-800 hidden">
+                            Soal Berikutnya <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== KUIS HASIL ==================== -->
+        <div id="page-kuis-result" class="page bg-gradient-to-b from-blue-50 to-white overflow-y-auto">
+            <div class="top-nav absolute top-0 w-full">
+                <div class="font-bold">Hasil Kuis</div>
+                <button onclick="navigateTo('page-beranda')" class="hover:text-yellow-300"><i class="fas fa-home"></i> Beranda</button>
+            </div>
+            
+            <div class="content-area items-center justify-center mt-12 pb-12">
+                <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-2xl text-center relative overflow-hidden border-2 border-gray-100">
+                    <div class="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-primary to-secondary"></div>
+                    
+                    <h2 class="text-3xl font-bold text-gray-800 mt-4 mb-2">Penyelesaian Kuis</h2>
+                    <p class="text-gray-600 mb-6">Matematika Tingkat Lanjut - Operasi Perkalian Polinomial</p>
+                    
+                    <div class="flex justify-center mb-6">
+                        <div class="relative w-40 h-40 flex items-center justify-center bg-gray-50 rounded-full border-8 border-gray-100">
+                            <svg class="absolute w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="8"></circle>
+                                <circle id="score-circle" cx="50" cy="50" r="40" fill="none" stroke="#1d4ed8" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" class="transition-all duration-1000 ease-out"></circle>
+                            </svg>
+                            <div class="text-center z-10">
+                                <div id="final-score" class="text-4xl font-black text-gray-800">0</div>
+                                <div class="text-xs font-bold text-gray-500 uppercase tracking-widest">Skor</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                            <div class="text-green-600 font-bold text-2xl" id="final-correct">0</div>
+                            <div class="text-gray-600 text-sm">Jawaban Benar</div>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                            <div class="text-red-600 font-bold text-2xl" id="final-wrong">0</div>
+                            <div class="text-gray-600 text-sm">Jawaban Salah</div>
+                        </div>
+                    </div>
+                    
+                    <div id="result-category" class="text-xl font-bold mb-8 py-3 px-6 rounded-lg bg-gray-100 inline-block text-gray-700">
+                        <!-- Category goes here -->
+                    </div>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button onclick="resetQuiz()" class="btn border-2 border-primary text-primary py-3 px-6 rounded-xl font-bold hover:bg-blue-50">
+                            <i class="fas fa-rotate-right mr-2"></i> Ulangi Kuis
+                        </button>
+                        <button onclick="navigateTo('page-materi-1')" class="btn bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-bold hover:bg-gray-200">
+                            <i class="fas fa-book mr-2"></i> Kembali ke Materi
+                        </button>
+                        <button onclick="generateCertificate()" id="btn-download-cert" class="btn bg-secondary text-blue-900 py-3 px-6 rounded-xl font-bold shadow-md hover:bg-yellow-500 flex items-center justify-center">
+                            <i class="fas fa-download mr-2"></i> UNDUH SERTIFIKAT
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Certificate Template for PDF generation -->
+        <div id="certificate-template">
+            <div class="cert-inner">
+                <div class="w-full text-center border-b-2 border-gray-300 pb-4 mb-4">
+                    <h1 class="text-4xl font-black text-primary uppercase tracking-widest">SERTIFIKAT</h1>
+                    <h2 class="text-xl text-gray-600 font-semibold tracking-wider mt-2">PENYELESAIAN KUIS</h2>
+                </div>
+                
+                <div class="flex-grow flex flex-col justify-center w-full my-4">
+                    <p class="text-lg text-gray-600 mb-2">Diberikan kepada:</p>
+                    <h2 id="cert-name" class="text-5xl font-bold text-gray-800 mb-2 font-serif capitalize">Nama Murid</h2>
+                    <p id="cert-class" class="text-xl text-gray-600 mb-6">Kelas</p>
+                    
+                    <p class="text-lg text-gray-700 mb-2 leading-relaxed px-10">
+                        Atas keberhasilannya menyelesaikan Kuis Evaluasi pada Media Pembelajaran Interaktif.
+                    </p>
+                    
+                    <div class="bg-blue-50 py-3 px-8 rounded-lg inline-block my-4 border border-blue-200 self-center">
+                        <p class="text-xl font-bold text-primary">Materi: Operasi Perkalian Polinomial</p>
+                        <p class="text-md text-gray-600 font-semibold">Mata Pelajaran: Matematika Tingkat Lanjut</p>
+                    </div>
+                    
+                    <div class="flex justify-center gap-8 mt-4 text-lg">
+                        <div>Skor: <span id="cert-score" class="font-bold text-primary text-2xl">100</span></div>
+                        <div>Jawaban Benar: <span id="cert-correct" class="font-bold text-green-600 text-2xl">10</span>/10</div>
+                    </div>
+                </div>
+                
+                <div class="w-full flex justify-between items-end mt-4 pt-4 border-t-2 border-gray-300">
+                    <div class="text-left">
+                        <p class="text-sm text-gray-500 mb-1">Tanggal Penyelesaian:</p>
+                        <p id="cert-date" class="font-bold text-gray-700">DD/MM/YYYY</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="border-b border-gray-800 w-48 mb-2"></div>
+                        <p class="text-sm font-bold text-gray-700">Guru Mata Pelajaran</p>
+                    </div>
+                </div>
+                
+                <!-- Watermark -->
+                <i class="fas fa-square-root-variable absolute text-9xl text-blue-500 opacity-5" style="top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1;"></i>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Navigation Logic ---
+        function navigateTo(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            // Show target page
+            document.getElementById(pageId).classList.add('active');
+            
+            // Trigger specific page animations
+            if(pageId === 'page-materi-1') resetAnim1();
+            if(pageId === 'page-materi-2') {
+                ['langkah2a', 'langkah2b', 'langkah2c'].forEach(id => {
+                    document.getElementById(id).classList.add('hidden');
+                });
+            }
+        }
+
+        function toggleVisibility(id) {
+            const el = document.getElementById(id);
+            if(el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+            }
+        }
+
+        // --- Animations for Materi ---
+        function playAnim1() {
+            const btn = document.getElementById('btn-anim-1');
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            
+            let delay = 0;
+            for(let i=1; i<=5; i++) {
+                setTimeout(() => {
+                    document.getElementById(`anim1-s${i}`).classList.add('show');
+                }, delay);
+                delay += 800; // 0.8s between steps
+            }
+        }
+
+        function resetAnim1() {
+            for(let i=1; i<=5; i++) {
+                document.getElementById(`anim1-s${i}`).classList.remove('show');
+            }
+            const btn = document.getElementById('btn-anim-1');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        }
+
+        // --- Interactive Mistake ---
+        function checkMistake(choice) {
+            const feedback = document.getElementById('mistake-feedback');
+            feedback.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            
+            if(choice === 2) {
+                feedback.classList.add('bg-green-100', 'text-green-700');
+                feedback.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Benar! Kamu harus mengalikan setiap suku (distribusi/FOIL).';
+                document.getElementById('btn-correct-mistake').classList.add('border-green-500', 'bg-green-50');
+            } else {
+                feedback.classList.add('bg-red-100', 'text-red-700');
+                feedback.innerHTML = '<i class="fas fa-xmark-circle mr-2"></i> Belum tepat. Ingat aturan FOIL atau distribusi setiap suku.';
+            }
+        }
+
+        // --- Practice ---
+        function checkPractice(ans) {
+            const feedback = document.getElementById('practice-feedback');
+            feedback.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            
+            // Reset styles
+            ['A','B','C','D'].forEach(l => {
+                document.getElementById(`prac-${l}`).classList.remove('bg-blue-100', 'border-blue-500');
+            });
+            document.getElementById(`prac-${ans}`).classList.add('bg-blue-100', 'border-blue-500');
+
+            if(ans === 'A') { // (x-5)(x+2) = x^2 + 2x - 5x - 10 = x^2 - 3x - 10
+                feedback.classList.add('bg-green-100', 'text-green-700');
+                feedback.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Benar! (x)(x) + (x)(2) + (-5)(x) + (-5)(2) = x² - 3x - 10';
+            } else {
+                feedback.classList.add('bg-red-100', 'text-red-700');
+                feedback.innerHTML = '<i class="fas fa-xmark-circle mr-2"></i> Belum tepat, coba periksa kembali perkalian setiap suku dan tandanya.';
+            }
+        }
+
+        // --- QUIZ LOGIC ---
+        const quizData = [
+            {
+                q: "Hasil kali dari \\(2x(3x + 4)\\) adalah...",
+                opts: ["\\(5x + 8\\)", "\\(6x^2 + 8x\\)", "\\(6x^2 + 4\\)", "\\(6x + 8x\\)"],
+                ans: 1 // B
+            },
+            {
+                q: "Hasil dari \\(-3x(x^2 - 2x + 1)\\) adalah...",
+                opts: ["\\(-3x^3 + 6x^2 - 3x\\)", "\\(-3x^3 - 6x^2 - 3x\\)", "\\(-3x^3 + 6x^2 + 1\\)", "\\(3x^3 - 6x^2 + 3x\\)"],
+                ans: 0 // A
+            },
+            {
+                q: "Bentuk sederhana dari perkalian \\((x + 3)(x + 5)\\) adalah...",
+                opts: ["\\(x^2 + 15\\)", "\\(x^2 + 8x + 15\\)", "\\(2x + 8\\)", "\\(x^2 + 8x + 8\\)"],
+                ans: 1 // B
+            },
+            {
+                q: "Hasil dari \\((2x - 1)(x + 4)\\) adalah...",
+                opts: ["\\(2x^2 + 7x - 4\\)", "\\(2x^2 + 9x - 4\\)", "\\(2x^2 - 4\\)", "\\(2x^2 + 8x - 4\\)"],
+                ans: 0 // A : 2x^2 +8x -x -4 = 2x^2+7x-4
+            },
+            {
+                q: "Hasil perkalian binomial \\((x - 2)(x - 6)\\) adalah...",
+                opts: ["\\(x^2 - 8x - 12\\)", "\\(x^2 + 8x + 12\\)", "\\(x^2 - 8x + 12\\)", "\\(x^2 - 12\\)"],
+                ans: 2 // C : x^2 -6x -2x +12 = x^2-8x+12
+            },
+            {
+                q: "Perkalian dari \\((3x + 2)(3x - 2)\\) menghasilkan...",
+                opts: ["\\(9x^2 + 4\\)", "\\(9x^2 - 12x - 4\\)", "\\(6x^2 - 4\\)", "\\(9x^2 - 4\\)"],
+                ans: 3 // D : selisih dua kuadrat
+            },
+            {
+                q: "Hasil kali dari polinomial \\((x + 1)(x^2 - x + 1)\\) adalah...",
+                opts: ["\\(x^3 + 1\\)", "\\(x^3 - 1\\)", "\\(x^3 + x^2 + 1\\)", "\\(x^3 - x^2 + x + 1\\)"],
+                ans: 0 // A : jumlah pangkat tiga. x^3 -x^2+x +x^2-x+1 = x^3+1
+            },
+            {
+                q: "Jika polinomial \\(P(x) = x^2 - 3x + 2\\) dikalikan dengan \\(Q(x) = x + 1\\), maka hasil kali suku berderajat terendah (konstanta) adalah...",
+                opts: ["\\(1\\)", "\\(2\\)", "\\(3\\)", "\\(-2\\)"],
+                ans: 1 // B : 2 * 1 = 2
+            },
+            {
+                q: "Hasil dari operasi perkalian \\((2x^2 + x - 3)(x - 2)\\) adalah...",
+                opts: ["\\(2x^3 - 3x^2 - 5x + 6\\)", "\\(2x^3 - 3x^2 - 2x + 6\\)", "\\(2x^3 + 5x^2 - x + 6\\)", "\\(2x^3 - 5x^2 - 5x - 6\\)"],
+                ans: 0 // A: 2x^3 -4x^2 +x^2 -2x -3x +6 = 2x^3 -3x^2 -5x +6
+            },
+            {
+                q: "Koefisien dari suku \\(x^2\\) pada hasil perkalian \\((x^2 + 2x + 4)(3x - 1)\\) adalah...",
+                opts: ["\\(-1\\)", "\\(5\\)", "\\(6\\)", "\\(2\\)"],
+                ans: 1 // B: (x^2)(-1) + (2x)(3x) = -x^2 + 6x^2 = 5x^2
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+        let correctCount = 0;
+        let shuffledQuestions = [];
+        let studentData = { name: "", class: "" };
+        let selectedOptionIdx = -1;
+        let quizCompleted = false;
+
+        function shuffleArray(array) {
+            let curId = array.length;
+            while (0 !== curId) {
+                let randId = Math.floor(Math.random() * curId);
+                curId -= 1;
+                let tmp = array[curId];
+                array[curId] = array[randId];
+                array[randId] = tmp;
+            }
+            return array;
+        }
+
+        function startQuiz() {
+            const nameInput = document.getElementById('student-name').value.trim();
+            const classInput = document.getElementById('student-class').value.trim();
+            
+            if(nameInput === "") {
+                alert("Mohon masukkan Nama Murid terlebih dahulu.");
+                return;
+            }
+            
+            studentData.name = nameInput;
+            studentData.class = classInput || "-";
+
+            // Prepare quiz
+            // Shuffle options for each question and keep track of correct answer
+            shuffledQuestions = quizData.map(q => {
+                // Create array of objects to map original index
+                let optionsWithIndex = q.opts.map((opt, i) => ({ text: opt, isCorrect: i === q.ans }));
+                // Shuffle options
+                shuffleArray(optionsWithIndex);
+                return {
+                    q: q.q,
+                    opts: optionsWithIndex
+                };
+            });
+            
+            // Note: I'm NOT shuffling questions to keep difficulty progression as requested.
+            // If requested to shuffle questions, uncomment: shuffleArray(shuffledQuestions);
+
+            currentQuestion = 0;
+            score = 0;
+            correctCount = 0;
+            quizCompleted = false;
+            
+            loadQuestion();
+            navigateTo('page-kuis-play');
+        }
+
+        function loadQuestion() {
+            selectedOptionIdx = -1;
+            const q = shuffledQuestions[currentQuestion];
+            
+            // Update UI
+            document.getElementById('quiz-progress-text').innerText = `${currentQuestion + 1}/${shuffledQuestions.length}`;
+            document.getElementById('quiz-progress-bar').style.width = `${((currentQuestion + 1) / shuffledQuestions.length) * 100}%`;
+            
+            // Render MathJax
+            document.getElementById('question-text').innerHTML = `${currentQuestion + 1}. ${q.q}`;
+            
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = '';
+            
+            const labels = ['A', 'B', 'C', 'D'];
+            
+            q.opts.forEach((opt, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'quiz-option border-2 border-gray-200 p-4 rounded-xl text-lg flex items-center bg-gray-50';
+                btn.onclick = () => selectOption(index);
+                btn.id = `opt-${index}`;
+                
+                btn.innerHTML = `
+                    <div class="w-8 h-8 rounded bg-gray-200 text-gray-700 font-bold flex items-center justify-center mr-4 flex-shrink-0 label-box">${labels[index]}</div>
+                    <div class="opt-text">${opt.text}</div>
+                `;
+                optsContainer.appendChild(btn);
+            });
+            
+            // Hide feedback and next button
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.add('hidden');
+            document.getElementById('btn-next-question').classList.add('hidden');
+
+            // Tell MathJax to re-typeset the newly added math content
+            if (window.MathJax) {
+                MathJax.typesetPromise([document.getElementById('question-text'), optsContainer]).catch(function (err) {
+                    console.log('MathJax typeset failed: ' + err.message);
+                });
+            }
+        }
+
+        function selectOption(index) {
+            if(selectedOptionIdx !== -1) return; // Prevent multiple selections
+            
+            selectedOptionIdx = index;
+            const q = shuffledQuestions[currentQuestion];
+            const isCorrect = q.opts[index].isCorrect;
+            
+            // Highlight selected
+            const selectedBtn = document.getElementById(`opt-${index}`);
+            
+            // Disable all options
+            document.querySelectorAll('#options-container .quiz-option').forEach((btn, i) => {
+                btn.style.cursor = 'default';
+                if(i === index) {
+                    if(isCorrect) {
+                        btn.classList.add('correct');
+                        btn.querySelector('.label-box').classList.replace('bg-gray-200', 'bg-green-500');
+                        btn.querySelector('.label-box').classList.replace('text-gray-700', 'text-white');
+                    } else {
+                        btn.classList.add('wrong');
+                        btn.querySelector('.label-box').classList.replace('bg-gray-200', 'bg-red-500');
+                        btn.querySelector('.label-box').classList.replace('text-gray-700', 'text-white');
+                    }
+                }
+                
+                // Always show correct answer
+                if(q.opts[i].isCorrect) {
+                    btn.classList.add('border-green-500', 'bg-green-50');
+                    if(i !== index) {
+                         btn.querySelector('.label-box').classList.replace('bg-gray-200', 'bg-green-200');
+                         btn.querySelector('.label-box').classList.replace('text-gray-700', 'text-green-800');
+                    }
+                }
+            });
+
+            // Show Feedback
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+            
+            if(isCorrect) {
+                correctCount++;
+                feedback.classList.add('bg-green-100', 'text-green-800');
+                feedback.innerHTML = '<i class="fas fa-check-circle text-2xl mb-1"></i><br>Benar! Kerja bagus.';
+            } else {
+                feedback.classList.add('bg-red-100', 'text-red-800');
+                feedback.innerHTML = '<i class="fas fa-xmark-circle text-2xl mb-1"></i><br>Kurang tepat. Perhatikan tanda dan operasi perkalian tiap suku.';
+            }
+
+            // Show Next button
+            const nextBtn = document.getElementById('btn-next-question');
+            nextBtn.classList.remove('hidden');
+            if(currentQuestion === shuffledQuestions.length - 1) {
+                nextBtn.innerHTML = 'Lihat Hasil <i class="fas fa-flag-checkered ml-2"></i>';
+                nextBtn.classList.replace('bg-primary', 'bg-secondary');
+                nextBtn.classList.replace('text-white', 'text-blue-900');
+            }
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            if(currentQuestion < shuffledQuestions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            quizCompleted = true;
+            // Calculate Score: (correct / total) * 100
+            score = Math.round((correctCount / shuffledQuestions.length) * 100);
+            const wrongCount = shuffledQuestions.length - correctCount;
+
+            // Update UI
+            document.getElementById('final-correct').innerText = correctCount;
+            document.getElementById('final-wrong').innerText = wrongCount;
+            
+            // Animate Score
+            let currentScoreDisplay = 0;
+            const scoreEl = document.getElementById('final-score');
+            const scoreCircle = document.getElementById('score-circle');
+            
+            // Reset circle
+            scoreCircle.style.strokeDashoffset = 251.2;
+            
+            navigateTo('page-kuis-result');
+            
+            setTimeout(() => {
+                const finalOffset = 251.2 - (251.2 * (score / 100));
+                scoreCircle.style.strokeDashoffset = finalOffset;
+                
+                // Color based on score
+                if(score >= 80) scoreCircle.style.stroke = "#16a34a"; // green
+                else if(score >= 60) scoreCircle.style.stroke = "#ca8a04"; // yellow
+                else scoreCircle.style.stroke = "#dc2626"; // red
+
+                let animInt = setInterval(() => {
+                    if(currentScoreDisplay >= score) {
+                        clearInterval(animInt);
+                        scoreEl.innerText = score;
+                    } else {
+                        currentScoreDisplay++;
+                        scoreEl.innerText = currentScoreDisplay;
+                    }
+                }, 15);
+            }, 300);
+
+            // Category text without altering learning objectives
+            const categoryEl = document.getElementById('result-category');
+            if(score >= 80) {
+                categoryEl.innerHTML = 'Sangat Baik! <span class="text-sm font-normal block">Murid telah menguasai operasi perkalian polinomial dengan baik.</span>';
+                categoryEl.className = "text-xl font-bold mb-8 py-3 px-6 rounded-lg bg-green-100 text-green-800 inline-block";
+            } else if(score >= 60) {
+                categoryEl.innerHTML = 'Cukup Baik. <span class="text-sm font-normal block">Murid cukup memahami, namun perlu sedikit latihan lagi.</span>';
+                categoryEl.className = "text-xl font-bold mb-8 py-3 px-6 rounded-lg bg-yellow-100 text-yellow-800 inline-block";
+            } else {
+                categoryEl.innerHTML = 'Perlu Berlatih. <span class="text-sm font-normal block">Silakan baca kembali materi dan coba lagi.</span>';
+                categoryEl.className = "text-xl font-bold mb-8 py-3 px-6 rounded-lg bg-red-100 text-red-800 inline-block";
+            }
+        }
+
+        function resetQuiz() {
+            navigateTo('page-kuis-start');
+        }
+
+        async function generateCertificate() {
+            if(!quizCompleted) return;
+
+            const btn = document.getElementById('btn-download-cert');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Membuat PDF...';
+            btn.disabled = true;
+
+            try {
+                // Populate template data
+                document.getElementById('cert-name').innerText = studentData.name;
+                document.getElementById('cert-class').innerText = `Kelas: ${studentData.class}`;
+                document.getElementById('cert-score').innerText = score;
+                document.getElementById('cert-correct').innerText = correctCount;
+                
+                const today = new Date();
+                const dateStr = today.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+                document.getElementById('cert-date').innerText = dateStr;
+
+                const certElement = document.getElementById('certificate-template');
+                
+                // Temporarily make it visible for html2canvas but keep it off-screen
+                certElement.style.left = '0';
+                certElement.style.top = '0';
+                certElement.style.zIndex = '-100';
+
+                // Ensure MathJax isn't messing with certificate formatting (though there is no math on cert)
+                const canvas = await html2canvas(certElement, {
+                    scale: 2, // High quality
+                    backgroundColor: "#ffffff",
+                    logging: false
+                });
+
+                // Hide it back
+                certElement.style.left = '-9999px';
+
+                // Create PDF
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                
+                // Landscape, points, A4 dimensions (297x210 mm)
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                // Calculate ratio to fit image into PDF maintaining aspect ratio
+                const imgProps= pdf.getImageProperties(imgData);
+                const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height);
+                const width = imgProps.width * ratio;
+                const height = imgProps.height * ratio;
+                
+                // Center the image
+                const x = (pdfWidth - width) / 2;
+                const y = (pdfHeight - height) / 2;
+
+                pdf.addImage(imgData, 'PNG', x, y, width, height);
+                
+                // Save
+                let safeName = studentData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                pdf.save(`Sertifikat_Polinomial_${safeName}.pdf`);
+
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                alert("Terjadi kesalahan saat membuat sertifikat. Pastikan koneksi internet stabil.");
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        }
+        
+        // Initialize
+        window.onload = () => {
+             // Initial load complete
+        };
+
+    </script>
+</body>
+</html>
